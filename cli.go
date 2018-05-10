@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/shiimaxx/gurl/gurl"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -48,9 +50,16 @@ func (c *CLI) Run(args []string) int {
 		return ExitCodeError
 	}
 
-	filePath := flags.Args()[0]
-	if _, err := os.Stat(filePath); os.IsExist(err) {
-		fmt.Fprintf(c.errStream, "%s: already exits\n", filePath)
+	if _, err := os.Stat(output); os.IsExist(err) {
+		fmt.Fprintf(c.errStream, "%s: already exits\n", output)
+		return ExitCodeError
+	}
+
+	url := flags.Args()[0]
+
+	client := gurl.NewClient(output)
+	if err := client.Get(url); err != nil {
+		fmt.Fprintf(c.errStream, "%s\n", err)
 		return ExitCodeError
 	}
 
