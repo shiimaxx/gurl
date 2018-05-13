@@ -1,18 +1,37 @@
 package gurl
 
-// Client clinet
+// Doer http request doer
+type Doer interface {
+	doRequest(string) error
+}
+
+// Client gurl client
 type Client struct {
-	Output string
+	GurlDoer Doer
+	Output   string
+}
+
+// Content actual content
+type Content struct {
+	Name   string
+	Length int
+}
+
+// NewDoer constractor for Doer
+func NewDoer() Doer {
+	d := new(Doer)
+	return *d
 }
 
 // NewClient constractor for Client
-func NewClient(output string) *Client {
-	c := new(Client)
-	c.Output = output
-	return c
+func NewClient(doer Doer, output string) *Client {
+	return &Client{
+		GurlDoer: doer,
+		Output:   output,
+	}
 }
 
-// Get access url
+// Get content of url
 func (c *Client) Get(url string) error {
 	return nil
 }

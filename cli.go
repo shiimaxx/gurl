@@ -57,7 +57,8 @@ func (c *CLI) Run(args []string) int {
 
 	url := flags.Args()[0]
 
-	client := gurl.NewClient(output)
+	doer := gurl.NewDoer()
+	client := gurl.NewClient(doer, output)
 	if err := client.Get(url); err != nil {
 		fmt.Fprintf(c.errStream, "%s\n", err)
 		return ExitCodeError
