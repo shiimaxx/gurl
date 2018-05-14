@@ -25,8 +25,9 @@ type CLI struct {
 // Run invokes the CLI with the given arguments.
 func (c *CLI) Run(args []string) int {
 	var (
-		output  string
-		version bool
+		parallel int
+		output   string
+		version  bool
 	)
 
 	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
@@ -34,6 +35,9 @@ func (c *CLI) Run(args []string) int {
 
 	flags.StringVar(&output, "output", "./", "output file")
 	flags.StringVar(&output, "o", "./", "output file(Short)")
+	flags.IntVar(&parallel, "parallel", 10, "number of parallel")
+	flags.IntVar(&parallel, "p", 10, "number of parallel(Short)")
+
 	flags.BoolVar(&version, "version", false, "print version information")
 
 	if err := flags.Parse(args[1:]); err != nil {
@@ -57,8 +61,7 @@ func (c *CLI) Run(args []string) int {
 
 	url := flags.Args()[0]
 
-	doer := gurl.NewDoer()
-	client := gurl.NewClient(doer, output)
+	client := gurl.NewClient(parallel, output)
 	if err := client.Get(url); err != nil {
 		fmt.Fprintf(c.errStream, "%s\n", err)
 		return ExitCodeError
