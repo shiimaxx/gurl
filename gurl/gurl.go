@@ -2,8 +2,10 @@ package gurl
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 )
@@ -44,6 +46,9 @@ func (c *Client) Get(url string) error {
 	surplus := contentLength % c.Parallel
 
 	var wg sync.WaitGroup
+	tmpFiles := make([]io.Reader, c.Parallel)
+	tmpFileNames := make([]string, c.Parallel)
+
 	for i := 0; i < c.Parallel; i++ {
 		s := i * chunkSize
 		e := s + (chunkSize - 1)
@@ -60,11 +65,22 @@ func (c *Client) Get(url string) error {
 			defer resp.Body.Close()
 
 			reader, _ := ioutil.ReadAll(resp.Body)
-			ioutil.WriteFile(fmt.Sprintf("%s.%d.tmp", c.Output, i), reader, 0755)
+			filename := fmt.Sprintf("%s.%d.tmp", c.Output, i)
+			ioutil.WriteFile(filename, reader, 0644)
+			tmpFiles[i], _ = os.Open(filename)
+			tmpFileNames[i] = filename
 			wg.Done()
 		}(s, e, i)
 	}
 	wg.Wait()
+
+	reader := io.MultiReader(tmpFiles...)
+	b, _ := ioutil.ReadAll(reader)
+	ioutil.WriteFile(c.Output, b, 0644)
+
+	for _, f := range tmpFileNames {
+		os.Remove(f)
+	}
 
 	return nil
 }
