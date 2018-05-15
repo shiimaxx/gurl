@@ -14,3 +14,5 @@
 .glide/
 
 dist/
+
+gurl_darwin_amd64
