@@ -33,8 +33,8 @@ func (c *CLI) Run(args []string) int {
 	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
 	flags.SetOutput(c.outStream)
 
-	flags.StringVar(&output, "output", "./", "output file")
-	flags.StringVar(&output, "o", "./", "output file(Short)")
+	flags.StringVar(&output, "output", "", "output file")
+	flags.StringVar(&output, "o", "", "output file(Short)")
 	flags.IntVar(&parallel, "parallel", 10, "number of parallel")
 	flags.IntVar(&parallel, "p", 10, "number of parallel(Short)")
 
@@ -51,6 +51,11 @@ func (c *CLI) Run(args []string) int {
 
 	if len(flags.Args()) < 1 {
 		fmt.Fprintln(c.errStream, "missing arguments")
+		return ExitCodeError
+	}
+
+	if output == "" {
+		fmt.Fprint(c.errStream, "require output option\n")
 		return ExitCodeError
 	}
 
