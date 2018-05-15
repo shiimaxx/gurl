@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Client gurl client
@@ -45,38 +46,60 @@ func (c *Client) Get(url string) error {
 	chunkSize := contentLength / c.Parallel
 	surplus := contentLength % c.Parallel
 
-	var wg sync.WaitGroup
+	eg := errgroup.Group{}
 	tmpFiles := make([]io.Reader, c.Parallel)
 	tmpFileNames := make([]string, c.Parallel)
 
-	for i := 0; i < c.Parallel; i++ {
-		s := i * chunkSize
+	for p := 0; p < c.Parallel; p++ {
+		s := p * chunkSize
 		e := s + (chunkSize - 1)
-		if i == c.Parallel-1 {
+		if p == c.Parallel-1 {
 			e += surplus
 		}
 
-		wg.Add(1)
-		go func(startRange, endRange, i int) {
+		i := p
+		eg.Go(func() error {
 			client := &http.Client{}
-			req, _ := http.NewRequest("GET", url, nil)
-			req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", startRange, endRange))
-			resp, _ := client.Do(req)
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				return err
+			}
+			req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", s, e))
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
 			defer resp.Body.Close()
 
-			reader, _ := ioutil.ReadAll(resp.Body)
+			reader, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
 			filename := fmt.Sprintf("%s.%d.tmp", c.Output, i)
-			ioutil.WriteFile(filename, reader, 0644)
-			tmpFiles[i], _ = os.Open(filename)
+			if err := ioutil.WriteFile(filename, reader, 0644); err != nil {
+				return err
+			}
+			tmpFiles[i], err = os.Open(filename)
+			if err != nil {
+				return err
+			}
 			tmpFileNames[i] = filename
-			wg.Done()
-		}(s, e, i)
+			return nil
+		})
 	}
-	wg.Wait()
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
 
 	reader := io.MultiReader(tmpFiles...)
-	b, _ := ioutil.ReadAll(reader)
-	ioutil.WriteFile(c.Output, b, 0644)
+	b, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(c.Output, b, 0644); err != nil {
+		return err
+	}
 
 	for _, f := range tmpFileNames {
 		os.Remove(f)
