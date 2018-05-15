@@ -1,6 +1,7 @@
 package gurl
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,6 +32,35 @@ func NewClient(parallel int, output string) *Client {
 	}
 }
 
+func rangeGet(ctx context.Context, url string, s, e, i int, tempFiles []*os.File) error {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", s, e))
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	reader, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	tempFile, err := ioutil.TempFile("./", "temp")
+	if err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(tempFile.Name(), reader, 0644); err != nil {
+		return err
+	}
+	tempFiles[i] = tempFile
+
+	return nil
+}
+
 // Get content of url
 func (c *Client) Get(url string) error {
 	resp, err := http.Head(url)
@@ -46,9 +76,8 @@ func (c *Client) Get(url string) error {
 	chunkSize := contentLength / c.Parallel
 	surplus := contentLength % c.Parallel
 
-	eg := errgroup.Group{}
-	tmpFiles := make([]io.Reader, c.Parallel)
-	tmpFileNames := make([]string, c.Parallel)
+	eg, ctx := errgroup.WithContext(context.TODO())
+	tempFiles := make([]*os.File, c.Parallel)
 
 	for p := 0; p < c.Parallel; p++ {
 		s := p * chunkSize
@@ -59,32 +88,7 @@ func (c *Client) Get(url string) error {
 
 		i := p
 		eg.Go(func() error {
-			client := &http.Client{}
-			req, err := http.NewRequest("GET", url, nil)
-			if err != nil {
-				return err
-			}
-			req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", s, e))
-			resp, err := client.Do(req)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			reader, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			filename := fmt.Sprintf("%s.%d.tmp", c.Output, i)
-			if err := ioutil.WriteFile(filename, reader, 0644); err != nil {
-				return err
-			}
-			tmpFiles[i], err = os.Open(filename)
-			if err != nil {
-				return err
-			}
-			tmpFileNames[i] = filename
-			return nil
+			return rangeGet(ctx, url, s, e, i, tempFiles)
 		})
 	}
 
@@ -92,7 +96,15 @@ func (c *Client) Get(url string) error {
 		return err
 	}
 
-	reader := io.MultiReader(tmpFiles...)
+	tempFilesReaders := make([]io.Reader, c.Parallel)
+	for i, f := range tempFiles {
+		tempFilesReaders[i], err = os.Open(f.Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	reader := io.MultiReader(tempFilesReaders...)
 	b, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
@@ -101,8 +113,8 @@ func (c *Client) Get(url string) error {
 		return err
 	}
 
-	for _, f := range tmpFileNames {
-		os.Remove(f)
+	for _, f := range tempFiles {
+		os.Remove(f.Name())
 	}
 
 	return nil
