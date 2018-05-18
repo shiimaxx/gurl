@@ -76,7 +76,7 @@ func (c *Client) Get(url string) error {
 	chunkSize := contentLength / c.Parallel
 	surplus := contentLength % c.Parallel
 
-	eg, ctx := errgroup.WithContext(context.TODO())
+	eg, ctx := errgroup.WithContext(context.Background())
 	tempFiles := make([]*os.File, c.Parallel)
 
 	for p := 0; p < c.Parallel; p++ {
