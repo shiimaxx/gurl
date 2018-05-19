@@ -61,6 +61,9 @@ func (c *Client) Get(url string) error {
 	if err != nil {
 		return err
 	}
+	if v := resp.Header.Get("Accept-Ranges"); v == "" || v == "none" {
+		return fmt.Errorf("server not support range requests")
+	}
 
 	contentLength, err := strconv.Atoi(resp.Header.Get("Content-Length"))
 	if err != nil {
