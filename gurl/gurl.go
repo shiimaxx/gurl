@@ -18,12 +18,6 @@ type Client struct {
 	Output   string
 }
 
-// Content actual content
-type Content struct {
-	Name   string
-	Length int
-}
-
 // NewClient constractor for Client
 func NewClient(parallel int, output string) *Client {
 	return &Client{
