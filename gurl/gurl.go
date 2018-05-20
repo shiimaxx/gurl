@@ -39,6 +39,7 @@ func rangeGet(ctx context.Context, url string, s, e, i int, tempFiles []*os.File
 		return err
 	}
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", s, e))
+	req.WithContext(ctx)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
