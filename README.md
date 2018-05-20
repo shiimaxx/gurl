@@ -5,15 +5,15 @@ gurl is a like curl command by go
 ## Usage
 
 ```
-gurl [(-o | --output) <file>] [(-p | --parallel) <parallel>] <url>
+gurl [(-p | --parallel) <parallel>] (-o | --output) <file> <url>
 ```
 
 ```
 Usage of gurl:
   -o string
-        output file(Short) (default "./")
+        output file(Short)
   -output string
-        output file (default "./")
+        output file
   -p int
         number of parallel(Short) (default 10)
   -parallel int

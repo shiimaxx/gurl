@@ -18,12 +18,6 @@ type Client struct {
 	Output   string
 }
 
-// Content actual content
-type Content struct {
-	Name   string
-	Length int
-}
-
 // NewClient constractor for Client
 func NewClient(parallel int, output string) *Client {
 	return &Client{
@@ -68,6 +62,9 @@ func (c *Client) Get(url string) error {
 	if err != nil {
 		return err
 	}
+	if v := resp.Header.Get("Accept-Ranges"); v == "" || v == "none" {
+		return fmt.Errorf("server not support range requests")
+	}
 
 	contentLength, err := strconv.Atoi(resp.Header.Get("Content-Length"))
 	if err != nil {
@@ -77,7 +74,7 @@ func (c *Client) Get(url string) error {
 	chunkSize := contentLength / c.Parallel
 	surplus := contentLength % c.Parallel
 
-	eg, ctx := errgroup.WithContext(context.TODO())
+	eg, ctx := errgroup.WithContext(context.Background())
 	tempFiles := make([]*os.File, c.Parallel)
 
 	for p := 0; p < c.Parallel; p++ {
